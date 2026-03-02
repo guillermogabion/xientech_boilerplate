@@ -1,0 +1,561 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Local Development (SQLite)
+ datasource db {
+   provider = "sqlite"
+   url      = env("DATABASE_URL")
+}
+// datasource db {
+//  provider = "postgresql"
+//  url      = env("DATABASE_URL")
+//  directUrl = env("DIRECT_URL")
+// }
+
+enum Designation {
+  NULL
+  RESIDENTS
+  PEACE_AND_ORDER
+  HEALTH_AND_SANITATION
+  FINANCE_AND_APPROPRIATIONS
+  INFRASTRUCTURE_AND_ENVIRONMENT
+  EDUCATION_CULTURE_ARTS
+  AGRICULTURE_AND_LIVELIHOOD
+  WOMEN_CHILDREN_FAMILY
+  SENIOR_CITIZEN_PWD
+  DISASTER_RISK_REDUCTION
+  HUMAN_RIGHTS_LEGAL
+}
+
+enum Role {
+  ADMIN // Full system access (IT/Dev)
+  CAPTAIN // Punong Barangay - High level oversight
+  COUNCILOR // Sangguniang Barangay Members (Kagawads)
+  SECRETARY // Primary encoder and document handler
+  TREASURER // Finance and budget handler
+  STAFF // General administrative staff
+  BHW // Barangay Health Workers (Module 3 access)
+  BNS // Barangay Nutrition Scholars (Health module)
+  TANOD // Peace and Order (Module 2 access)
+  SK_CHAIRMAN // Youth leadership oversight
+  SUPER_ADMIN
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  TRIAL
+  SUSPENDED
+  EXPIRED
+}
+
+model Organization {
+  id            Int                @id @default(autoincrement())
+  name          String             @unique
+  address       String?
+  contactNumber String?
+  
+  // Subscription Fields
+  subscriptionStatus SubscriptionStatus @default(TRIAL)
+  subscriptionPlan   String             @default("BASIC") // e.g., BASIC, PRO, ENTERPRISE
+  expiresAt         DateTime?          // When the subscription ends
+  isAutoRenew       Boolean            @default(false)
+  
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  users         User[]
+  residents Resident[]
+  households Household[]
+  systemLogs    SystemLog[]
+  puroks        Purok[]   
+  streets  Street[]  
+  blotters  Blotter[]
+  hearings  Hearing[]
+  healthprofile HealthProfile[]
+  document DocumentTemplate[]
+  clinicvisit ClinicVisit[]
+  wasteschedule WasteSchedule[]
+  wastelog WasteCollectionLog[]
+  wasteviolation WasteViolation[]
+  skresolution SkResolution[]
+  serviceapplication ServiceApplication[]
+  sktransaction SkTransaction[]
+  voucher Voucher[]
+  servicerequest ServiceRequest[]
+  skprogram SkProgram[]
+  financerequest FinanceRequest[]
+  appropriations Appropriation[]
+}
+
+enum BlotterStatus {
+  PENDING
+  MEDIATION
+  SETTLED
+  CFA
+  DISMISSED
+}
+
+enum HearingType {
+  PENDING
+  MEDIATION
+  SETTLED
+  CFA
+  DISMISSED
+}
+
+enum HearingStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+}
+
+model User {
+  id           Int           @id @default(autoincrement())
+  pic          String?
+  username     String        @unique
+  password     String
+  email        String         @unique
+  firstName    String?
+  lastName     String?
+  role         Role          @default(STAFF)
+
+  organizationId Int?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  designation  Json     @default("[\"NULL\"]")
+  isActive     Boolean       @default(true)
+  isDeleted    Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  puroks       Purok[]
+  clinicVisits ClinicVisit[]
+  logs      SystemLog[]
+  resetToken        String?   @unique
+  resetTokenExpires DateTime?
+}
+
+model Purok {
+  id             Int          @id @default(autoincrement())
+  name           String       // Note: Removed @unique from here
+  alias          String?
+  kagawad_id     Int
+  kagawad        User         @relation(fields: [kagawad_id], references: [id])
+  organizationId Int?         
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  streets        Street[]
+  households     Household[]
+  wasteSchedules WasteSchedule[]
+  wasteLogs      WasteCollectionLog[]
+
+  // Correct: Uses fields existing in THIS model
+  @@unique([name, organizationId], name: "name_organizationId")
+}
+model Street {
+  id             Int          @id @default(autoincrement())
+  name           String
+  
+  // --- MULTI-TENANCY ---
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  // --- RELATIONS ---
+  purok_id       Int
+  purok          Purok        @relation(fields: [purok_id], references: [id])
+  households     Household[]
+
+  // Updated: Prevents duplicate street names in the same Purok within the same Org
+ @@unique([name, organizationId], name: "name_organizationId")
+  @@index([organizationId])
+}
+
+model Household {
+  id             Int          @id @default(autoincrement())
+  household_no   String
+  purok_id       Int
+  purok          Purok        @relation(fields: [purok_id], references: [id])
+  street_id      Int
+  street         Street       @relation(fields: [street_id], references: [id])
+  is4Ps          Boolean      @default(false)
+  householdId4Ps String?
+  isIndigent     Boolean      @default(false)
+  otherBenefits  Json
+  createdAt      DateTime     @default(now())
+  residents      Resident[]
+  wasteViolations WasteViolation[]
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  // FIX FOR ERROR 1: Refers to 'household_no', not 'name'
+  @@unique([household_no, purok_id])
+}
+
+model Resident {
+  id               Int            @id @default(autoincrement())
+  pic              String?
+  firstName        String
+  middleName       String?
+  lastName         String
+  extensionName    String?
+  nationalIdNumber String?
+  gender           String?
+  birthDate        DateTime       // Use this in the Controller
+  civilStatus      String?
+  phoneNumber      String?
+
+  // --- AUTH & LOGIN COLUMNS (NEW) ---
+  // The username generated by staff (e.g., jdelacruz)
+  username         String?        @unique 
+  // Initially the hashed birthdate, later the user's chosen password
+  password         String?        
+  // The permanent email provided during activation
+  email            String?        @unique 
+  // Account Status: INACTIVE (Temp login only), ACTIVE (Fully verified), LOCKED
+  status           String         @default("INACTIVE") 
+  // For the email legitimacy check
+  verificationToken String?
+  lastLogin        DateTime?
+
+  // Social Status
+  isIndigent       Boolean        @default(false)
+  isHead           Boolean        @default(false)
+  isVoter          Boolean        @default(false)
+  isSeniorCitizen  Boolean        @default(false)
+  isDeleted        Boolean        @default(false)
+
+  // Relations
+  organizationId    Int            // The ID of the Barangay/Organization
+  organization      Organization   @relation(fields: [organizationId], references: [id])
+  householdId       Int
+  household         Household      @relation(fields: [householdId], references: [id])
+  filedCases       Blotter[]      @relation("Complainant")
+  againstCases     Blotter[]      @relation("Respondent")
+  healthProfile    HealthProfile?
+  visits           ClinicVisit[]
+
+  // SK / Youth Specific (Must-Haves)
+  isStudent        Boolean        @default(false)
+  isEmployed       Boolean        @default(false)
+  isPWD            Boolean        @default(false)
+  educationalLevel String?
+  
+  skResolutions       SkResolution[]
+  serviceApplications ServiceApplication[]
+  vouchers            Voucher[]
+  createdAt        DateTime       @default(now())
+
+  @@index([birthDate]) // Performance boost for age filtering
+  requests ServiceRequest[]
+  @@unique([firstName, lastName, birthDate, householdId, organizationId])
+}
+
+
+model DocumentTemplate {
+  id             Int      @id @default(autoincrement())
+  name           String
+  layoutSettings Json
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Blotter {
+  id                         Int           @id @default(autoincrement())
+  caseNumber                 String        @unique
+  incidentType               String
+  incidentDate               DateTime
+  organizationId             Int
+  organization               Organization  @relation(fields: [organizationId], references: [id])
+  latitude                   Float?        // Precise GPS Latitude
+  longitude                  Float?        // Precise GPS Longitude
+  location                   String
+  complainantId              Int?
+  complainant                Resident?     @relation("Complainant", fields: [complainantId], references: [id])
+  respondentId               Int?
+  respondent                 Resident?     @relation("Respondent", fields: [respondentId], references: [id])
+  isExternalComplaint        Boolean       @default(false)
+  isExternalRespondent       Boolean       @default(false)
+  externalComplainant        String?
+  externalComplainantAddress String?
+  externalRespondent         String?
+  externalRespondentAddress  String?
+  status                     BlotterStatus @default(PENDING)
+  narrative                  String?
+  relief                     String?
+  hearings                   Hearing[]
+  isDeleted                  Boolean       @default(false)
+  createdAt                  DateTime      @default(now())
+  updatedAt                  DateTime      @updatedAt
+}
+
+model Hearing {
+  id            Int           @id @default(autoincrement())
+  scheduledDate DateTime
+  hearingType   HearingType   @default(MEDIATION)
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  minutes       String?
+  actionTaken   String?
+  nextSchedule DateTime?
+  status        HearingStatus @default(SCHEDULED)
+  blotterId     Int
+  blotter       Blotter       @relation(fields: [blotterId], references: [id], onDelete: Cascade)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model HealthProfile {
+  id         Int      @id @default(autoincrement())
+  residentId Int      @unique
+  resident   Resident @relation(fields: [residentId], references: [id], onDelete: Cascade)
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  // Physical Markers (For BMI & Nutrition Tracking)
+  height         Float? // in cm
+  weight         Float? // in kg
+  bloodType      String? // e.g., A+, B-, O
+  feedingType    String?
+  // Risk & Status Flags
+  isPregnant     Boolean @default(false)
+  isLactating    Boolean @default(false)
+  isPWD          Boolean @default(false)
+  disabilityType String? // e.g., Visual, Physical, Cognitive
+
+  // Medical Background
+  allergies          String? // Comma separated list
+  chronicConditions  String? // e.g., "Hypertension, Diabetes"
+  immunizationStatus String? // e.g., "Fully Immunized Child (FIC)"
+  
+  updatedAt DateTime @updatedAt
+}
+
+model ClinicVisit {
+  id         Int      @id @default(autoincrement())
+  residentId Int
+  resident   Resident @relation(fields: [residentId], references: [id], onDelete: Cascade)
+
+  // The person who attended to the resident
+  recordedById Int
+  recordedBy   User @relation(fields: [recordedById], references: [id])
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  visitType String
+  symptoms  String?
+  diagnosis String?
+  vitals    Json?
+  treatment String?
+  medsGiven String?
+
+  isValid       Boolean @default(true)
+  invalidReason String?
+
+  nextVisit DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model WasteSchedule {
+  id             Int     @id @default(autoincrement())
+  purokId        Int // Links to your existing Purok
+  purok          Purok   @relation(fields: [purokId], references: [id])
+  dayOfWeek      String // e.g., "Monday", "Tuesday"
+  wasteType      String // e.g., "Biodegradable", "Non-Biodegradable"
+  collectionTime String? // e.g., "08:00 AM"
+  organizationId Int?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WasteCollectionLog {
+  id             Int      @id @default(autoincrement())
+  purokId        Int
+  purok          Purok    @relation(fields: [purokId], references: [id])
+  collectionDate DateTime @default(now())
+  wasteType      String // Matches the schedule
+  status         String // "Completed", "Partial", "Cancelled"
+  collectorName  String? // Name of the driver or team leader
+  remarks        String? // e.g., "Truck breakdown delayed pickup"
+
+  // Link to specific household issues found during this trip
+  violations WasteViolation[]
+  organizationId Int?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model WasteViolation {
+  id              Int                 @id @default(autoincrement())
+  householdId     Int // Links to your existing Household
+  household       Household           @relation(fields: [householdId], references: [id])
+  collectionLogId Int?
+  collectionLog   WasteCollectionLog? @relation(fields: [collectionLogId], references: [id])
+  organizationId Int?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  violationType String // e.g., "Non-Segregated", "Improper Container"
+  description   String?
+  status        String  @default("Pending") // "Pending", "Notified", "Fined", "Resolved"
+  evidencePic   String? // URL to an image of the violation
+
+  createdAt DateTime @default(now())
+}
+
+model SkResolution {
+  id              Int      @id @default(autoincrement())
+  resolutionNo    String   @unique
+  series          Int
+  title           String
+  description     String?  // Removed @db.Text (not needed for SQLite)
+  dateAdopted     DateTime @default(now())
+  status          String   @default("Pending")
+  category        String
+  
+  authorId        Int
+  author          Resident @relation(fields: [authorId], references: [id])
+  organizationId Int?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  attachmentUrl   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model ServiceApplication {
+  id            Int      @id @default(autoincrement())
+  serviceType   String
+  status        String   @default("Pending")
+  residentId    Int
+  resident      Resident @relation(fields: [residentId], references: [id])
+  applicationData Json? 
+  hasValidId    Boolean  @default(false)
+  hasGrades     Boolean  @default(false)
+  hasIndigency  Boolean  @default(false)
+  remarks       String?
+  organizationId Int?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  appliedAt     DateTime @default(now())
+}
+
+model SkTransaction {
+  id              Int      @id @default(autoincrement())
+  voucherNo       String   @unique
+  particulars     String
+  amount          Float    // Changed Decimal to Float for SQLite compatibility
+  type            String
+  category        String
+  date            DateTime @default(now())
+  payee           String?
+  organizationId Int?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  checkNo         String?
+}
+
+model Voucher {
+  id              Int      @id @default(autoincrement())
+  voucherNumber   String   @unique
+  date            DateTime @default(now())
+  residentId      Int?
+  resident        Resident? @relation(fields: [residentId], references: [id])
+  payeeName       String
+  particulars     String
+  amount          Float    // Changed Decimal to Float for SQLite compatibility
+  checkNumber     String?
+  bankName        String   @default("Landbank")
+  category        String
+  isLiquidated    Boolean  @default(false)
+  organizationId Int?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model ServiceRequest {
+  id          Int      @id @default(autoincrement())
+  residentId   Int
+  // Establish the relation here
+  resident     Resident @relation(fields: [residentId], references: [id])
+  title       String?
+  serviceType String?   // e.g., "Scholarship", "Sports Fest"
+  status      String?   @default("PENDING") // PENDING, APPROVED, REJECTED
+  requirements Json?     // Stores links to uploaded PDFs/Images
+  createdAt   DateTime @default(now())
+  organizationId Int?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+}
+
+model SkProgram {
+  id          Int      @id @default(autoincrement())
+  title         String
+  category       String // 'Education' | 'Sports' | 'Health'
+  externalLink  String?
+  description String 
+  status      String   @default("ACTIVE") // ACTIVE, COMPLETED, CANCELLED
+  startDate   DateTime?
+  endDate     DateTime?
+  location    String?
+  image       String?  // URL for the program poster
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  organizationId Int?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+}
+// 1. Transaction Model: Tracks individual requests for funds
+model FinanceRequest {
+  id             Int      @id @default(autoincrement())
+  requestDate    DateTime @default(now())
+  requesterName  String
+  category       String   // This MUST match the category in Appropriation
+  purpose        String?
+  amount         Float
+  status         String   @default("Pending") // Pending, Approved, Disapproved, Released
+  organizationId Int?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  // Audit Trail
+  approvedById   Int?
+  approvalDate   DateTime?
+  @@map("finance_requests")
+}
+
+// 2. Budget Model: Tracks the annual allocation per category
+model Appropriation {
+  id               Int      @id @default(autoincrement())
+  year             Int      @default(2026)
+  category         String   @unique // e.g., "MOOE", "Personal Services"
+  allocatedAmount  Float    @default(0) // Total budget set at start of year
+  obligatedAmount  Float    @default(0) // Money tied to "Approved" requests
+  disbursedAmount  Float    @default(0) // Money actually paid out
+  remainingBalance Float    @default(0) // (Allocated - Obligated)
+  organizationId Int?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  @@map("appropriations")
+}
+
+model SystemLog {
+  id        Int      @id @default(autoincrement())
+  action    String
+  module    String
+  status    String   @default("SUCCESS")
+  
+  // FIX: Added '?' to make it optional and ensure type matches User.id
+  userId    Int?     
+  userRole  String?  
+  
+  details   String  
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  // Relation now works because userId is optional
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  organizationId Int?          // Nullable for system-wide logs
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  @@index([action])
+  @@index([module])
+  @@index([createdAt])
+}
+
+
+

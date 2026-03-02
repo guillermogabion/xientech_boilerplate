@@ -1,0 +1,25 @@
+{
+  "name": "tailadmin-1.0.0",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "generate": "cd server && npx prisma generate",
+    "migrate:local": "npx prisma migrate dev --schema=server/prisma/schema.local.prisma",
+    "server": "npm start --prefix server",
+    "client": "npm run dev --prefix client",
+    "start:ocr": "cd ocr-server && .\\venv\\Scripts\\python app.py",
+    "dev": "npm run generate && concurrently \"npm run server\" \"npm run client\" \"npm run start:ocr\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "dependencies": {
+    "axios": "^1.13.2",
+    "recharts": "^3.7.0"
+  }
+}

@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Designation {
+  NULL
+  PEACE_AND_ORDER
+  HEALTH_AND_SANITATION
+  EDUCATION_CULTURE_ARTS
+  YOUTH_SPORTS_DEVELOPMENT
+  INFRASTRUCTURE_PUBLIC_WORKS
+  ENVIRONMENT_SOLID_WASTE
+  LIVELIHOOD_ECONOMIC_DEVELOPMENT
+  WOMEN_CHILDREN_FAMILY
+  SENIOR_CITIZEN_PWD
+  DISASTER_RISK_REDUCTION
+  HUMAN_RIGHTS_LEGAL
+}
+
+model User {
+    id           Int         @id @default(autoincrement())
+    pic          String?     
+    username     String      @unique
+    password     String
+    email        String
+    role         String      @default("staff")
+    designation  Designation @default(NULL)
+    isActive     Boolean     @default(true)
+    isDeleted    Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+}
+
+model Resident {
+    id              Int      @id @default(autoincrement())
+    pic             String?  
+    firstName       String
+    lastName        String
+    birthDate       DateTime
+    purok           String
+    houseNumber     String
+    civilStatus     String?
+    religion        String?
+    phoneNumber     String?  @unique
+    isIndigent      Boolean  @default(false)
+    isSeniorCitizen Boolean  @default(false)
+    isDeleted       Boolean  @default(false)
+    createdAt       DateTime @default(now())
+}
+
+model DocumentTemplate {
+  id             Int      @id @default(autoincrement())
+  name           String
+  layoutSettings Json     
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
