@@ -2,12 +2,11 @@
   "name": "server",
   "version": "1.0.0",
   "description": "",
-  "main": "src/index.js",
- "scripts": {
+  "main": "index.js",
+  "scripts": {
     "start": "node --no-warnings src/index.js",
     "dev": "nodemon --no-warnings src/index.js",
-    "postinstall": "prisma generate", 
-    "vercel-build": "prisma generate"
+    "postinstall": "prisma generate"
   },
   "keywords": [],
   "author": "",
@@ -19,17 +18,19 @@
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
+    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
     "groq-sdk": "^0.37.0",
     "jsonwebtoken": "^9.0.3",
+    "node-cron": "^4.2.1",
     "nodemailer": "^7.0.13",
+    "tailadmin-1.0.0": "file:..",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "nodemon": "^3.1.11",
-    "prisma": "6.19.2",
-    "pg": "^8.11.0"
+    "prisma": "6.19.2"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
