@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "description": "",
   "main": "src/index.js",
-  "scripts": {
+ "scripts": {
     "start": "node --no-warnings src/index.js",
     "dev": "nodemon --no-warnings src/index.js",
-    "postinstall": "prisma generate",
-    "vercel-build": "prisma generate" 
+    "postinstall": "prisma generate --schema=./path/to/your/schema.prisma",
+    "vercel-build": "prisma generate --schema=./path/to/your/schema.prisma"
   },
   "keywords": [],
   "author": "",
