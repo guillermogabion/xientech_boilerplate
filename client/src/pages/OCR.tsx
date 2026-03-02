@@ -58,7 +58,7 @@ const OCR: React.FC = () => {
       formData.append('image', blob, 'capture.jpg');
 
       try {
-        const response = await axios.post('http://10.207.237.236:8000/api/ocr', formData);
+        const response = await axios.post('https://ian7117-my-ocr-api.hf.space/api/ocr', formData);
         setText(response.data.text || "No text found.");
       } catch (err) {
         setText("Error: Make sure Python server is on port 8000 and Tesseract is installed.");
