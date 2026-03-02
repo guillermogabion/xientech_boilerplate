@@ -3,7 +3,7 @@ import axios from 'axios';
 const api = axios.create({
   // baseURL: 'http://localhost:5000/api', // local 
   // baseURL: 'http://10.207.237.236:5000/api', // local 
-  baseURL: 'http://ocr-backend-gilt.vercel.app/api', // local 
+  baseURL: 'https://ocr-backend-gilt.vercel.app/api', // local 
   // baseURL: 'https://brgymanagementsystem.vercel.app/api', // prod
   // baseURL: 'https://xientech-api.vercel.app/api', // prod
   headers: {
