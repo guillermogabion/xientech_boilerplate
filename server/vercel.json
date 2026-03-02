@@ -11,7 +11,10 @@
       ]
     }
   ],
+  "builds": [
+  { "src": "server/src/index.js", "use": "@vercel/node" }
+  ],
   "rewrites": [
-    { "source": "/(.*)", "destination": "/api/index.js" }
+    { "source": "/(.*)", "destination": "server/src/index.js" }
   ]
 }
