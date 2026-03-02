@@ -1,5 +1,21 @@
 {
   "version": 2,
+  "builds": [
+    {
+      "src": "src/index.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/webhooks/cron/cleanup",
+      "schedule": "0 0 * * *" 
+    },
+    {
+      "path": "/api/cron/check-subscriptions",
+      "schedule": "0 0 * * *" 
+    }
+  ],
   "headers": [
     {
       "source": "/api/(.*)",
@@ -11,11 +27,10 @@
       ]
     }
   ],
-  "builds": [
-    { "src": "server/src/index.js", "use": "@vercel/node" }
-  ],
   "rewrites": [
-    { "source": "/(.*)", "destination": "server/src/index.js" }
+    { "source": "/api/webhooks/(.*)", "destination": "src/index.js" },
+    { "source": "/api/(.*)", "destination": "src/index.js" },
+    { "source": "/(.*)", "destination": "src/index.js" }
   ]
-
 }
+
