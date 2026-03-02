@@ -6,8 +6,8 @@
  "scripts": {
     "start": "node --no-warnings src/index.js",
     "dev": "nodemon --no-warnings src/index.js",
-    "postinstall": "prisma generate --schema=./src/prisma/schema.prisma",
-    "vercel-build": "prisma generate --schema=./src/prisma/schema.prisma"
+    "postinstall": "prisma generate", 
+    "vercel-build": "prisma generate"
   },
   "keywords": [],
   "author": "",
