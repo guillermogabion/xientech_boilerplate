@@ -57,7 +57,7 @@ const OCR: React.FC = () => {
 
       try {
         // Use the direct .hf.space URL
-        const response = await axios.post('https://ian7117-school-scanner.hf.space/api/scan/', formData, {
+        const response = await axios.post('https://ian7117-school-scanner.hf.space/api/scan', formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
