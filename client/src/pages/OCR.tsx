@@ -74,7 +74,7 @@ const OCR: React.FC = () => {
       } catch (err) {
         // Log the error to your browser console (F12) to see if it's a 403 or 404
         console.error("API Error Detailed:", err);
-        setText("Connection Error: Visit https://ian7117-school-scanner.hf.space/ to wake up the server.");
+        setText("Connection Error: Visit https://ian7117-sheet-scanner.hf.space/ to wake up the server.");
       } finally {
         setLoading(false);
       }
