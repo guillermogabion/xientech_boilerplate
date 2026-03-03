@@ -44,13 +44,11 @@ const OCR: React.FC = () => {
     const canvas = canvasRef.current;
     const video = videoRef.current;
 
-    // 1. Draw current video frame to hidden canvas
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
     ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // 2. Convert canvas to Blob (file-like object)
     canvas.toBlob(async (blob) => {
       if (!blob) return;
 
@@ -58,10 +56,22 @@ const OCR: React.FC = () => {
       formData.append('image', blob, 'capture.jpg');
 
       try {
-        const response = await axios.post('https://ian7117-my-ocr-api.hf.space/api/ocr', formData);
-        setText(response.data.text || "No text found.");
+        // UPDATED: Corrected the URL to match your Flask /api/scan route
+        const response = await axios.post('https://ian7117-school-scanner.hf.space/api/scan', formData);
+        
+        // UPDATED: Handle the JSON response (Name + Exam Results)
+        const data = response.data;
+        const formattedText = `
+Student: ${data.student_name || "Unknown"}
+---------------------------
+Results:
+${JSON.stringify(data.exam_results, null, 2)}
+        `;
+        setText(formattedText);
       } catch (err) {
-        setText("Error: Make sure Python server is on port 8000 and Tesseract is installed.");
+        // UPDATED: Clearer error message for Hugging Face status
+        setText("Error: Could not reach the scanner. Check if your Hugging Face Space is 'Running'.");
+        console.error("API Error:", err);
       } finally {
         setLoading(false);
       }
