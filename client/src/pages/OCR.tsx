@@ -37,7 +37,7 @@ const OCR: React.FC = () => {
     }
   };
 
-  const captureAndProcess = async () => {
+ const captureAndProcess = async () => {
     if (!videoRef.current || !canvasRef.current) return;
 
     setLoading(true);
@@ -56,22 +56,25 @@ const OCR: React.FC = () => {
       formData.append('image', blob, 'capture.jpg');
 
       try {
-        // UPDATED: Corrected the URL to match your Flask /api/scan route
-        const response = await axios.post('https://ian7117-school-scanner.hf.space/api/scan', formData);
+        // Use the direct .hf.space URL
+        const response = await axios.post('https://ian7117-school-scanner.hf.space/api/scan', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
         
-        // UPDATED: Handle the JSON response (Name + Exam Results)
         const data = response.data;
-        const formattedText = `
-Student: ${data.student_name || "Unknown"}
----------------------------
-Results:
-${JSON.stringify(data.exam_results, null, 2)}
-        `;
-        setText(formattedText);
+        // Check if the backend sent an error inside the successful response
+        if (data.error) {
+           setText(`Backend Error: ${data.error}`);
+        } else {
+           const formattedText = `Student: ${data.student_name || "Unknown"}\n---------------------------\nResults:\n${JSON.stringify(data.exam_results, null, 2)}`;
+           setText(formattedText);
+        }
       } catch (err) {
-        // UPDATED: Clearer error message for Hugging Face status
-        setText("Error: Could not reach the scanner. Check if your Hugging Face Space is 'Running'.");
-        console.error("API Error:", err);
+        // Log the error to your browser console (F12) to see if it's a 403 or 404
+        console.error("API Error Detailed:", err);
+        setText("Connection Error: Visit https://ian7117-school-scanner.hf.space/ to wake up the server.");
       } finally {
         setLoading(false);
       }
