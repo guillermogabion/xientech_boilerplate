@@ -6,27 +6,30 @@ const OCR: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
   const [text, setText] = useState<string>("");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null); // New state for true errors
   const [loading, setLoading] = useState<boolean>(false);
   const [cameraActive, setCameraActive] = useState<boolean>(false);
 
-  // Start Camera on Page Load
   useEffect(() => {
     startCamera();
-    return () => stopCamera(); // Cleanup on unmount
+    return () => stopCamera();
   }, []);
 
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "environment" } // Prefers back camera on phones
+        video: { 
+          facingMode: "environment",
+          width: { ideal: 1280 },
+          height: { ideal: 1920 } // Requesting taller resolution for paper
+        } 
       });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         setCameraActive(true);
       }
     } catch (err) {
-      console.error("Camera access denied:", err);
-      alert("Please allow camera access to use this feature.");
+      setErrorMsg("Camera access denied. Please enable permissions.");
     }
   };
 
@@ -37,10 +40,11 @@ const OCR: React.FC = () => {
     }
   };
 
- const captureAndProcess = async () => {
+  const captureAndProcess = async () => {
     if (!videoRef.current || !canvasRef.current) return;
 
     setLoading(true);
+    setErrorMsg(null); // Clear previous errors
     const canvas = canvasRef.current;
     const video = videoRef.current;
 
@@ -56,76 +60,93 @@ const OCR: React.FC = () => {
       formData.append('image', blob, 'capture.jpg');
 
       try {
-        // Use the direct .hf.space URL
         const response = await axios.post('https://ian7117-sheet-scanner.hf.space/api/scan', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
+          headers: { 'Content-Type': 'multipart/form-data' },
         });
         
         const data = response.data;
-        // Check if the backend sent an error inside the successful response
+
         if (data.error) {
-           setText(`Backend Error: ${data.error}`);
+          setErrorMsg(data.error); // Show the exact string from backend
         } else {
-           const formattedText = `Student: ${data.student_name || "Unknown"}\n---------------------------\nResults:\n${JSON.stringify(data.exam_results, null, 2)}`;
-           setText(formattedText);
+          const formattedText = `Student: ${data.student_name || "Unknown"}\nID: ${data.student_id || "N/A"}\n---------------------------\nResults:\n${JSON.stringify(data.exam_results, null, 2)}`;
+          setText(formattedText);
         }
-      } catch (err) {
-        // Log the error to your browser console (F12) to see if it's a 403 or 404
+      } catch (err: any) {
         console.error("API Error Detailed:", err);
-        setText("Connection Error: Visit https://ian7117-sheet-scanner.hf.space/ to wake up the server.");
+        // Extract the most descriptive error message possible
+        const message = err.response?.data?.error || err.message || "Unknown Server Error";
+        setErrorMsg(`Connection Failed: ${message}`);
       } finally {
         setLoading(false);
       }
-    }, 'image/jpeg');
+    }, 'image/jpeg', 0.9);
   };
 
   return (
-    <div className="flex flex-col items-center p-5 gap-6 bg-gray-100 min-h-screen">
-      <h2 className="text-2xl font-bold text-gray-800">Real-Time OCR Scanner</h2>
+    <div className="flex flex-col items-center p-4 gap-4 bg-gray-50 min-h-screen">
+      <h2 className="text-xl font-bold text-blue-900 mt-2">Exam Sheet Scanner</h2>
 
-      {/* 1. EMBEDDED CAMERA FEED */}
-      <div className="relative w-full max-w-md overflow-hidden rounded-xl border-4 border-white shadow-lg bg-black aspect-video">
+      {/* 1. BIGGER CAMERA FEED - Adjusted for Portrait Paper */}
+      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border-2 border-blue-200 shadow-2xl bg-black aspect-[3/4]">
         <video 
           ref={videoRef} 
           autoPlay 
           playsInline 
           className="w-full h-full object-cover"
         />
+        
+        {/* Scanning Animation Overlay */}
+        {cameraActive && !loading && (
+            <div className="absolute inset-x-0 top-1/2 h-0.5 bg-blue-400 shadow-[0_0_15px_rgba(96,165,250,0.8)] animate-pulse"></div>
+        )}
+
         {loading && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-            <span className="text-white font-semibold">Processing...</span>
+          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
+            <span className="text-white font-medium">Analyzing Sheet...</span>
           </div>
         )}
       </div>
 
-      {/* HIDDEN CANVAS FOR CAPTURING */}
+      {/* 2. ERROR MESSAGE DISPLAY */}
+      {errorMsg && (
+        <div className="w-full max-w-lg bg-red-100 border-l-4 border-red-500 p-4 rounded shadow-sm">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-red-800 font-bold text-sm uppercase">System Error</p>
+              <p className="text-red-700 font-mono text-xs mt-1">{errorMsg}</p>
+            </div>
+            <button onClick={() => setErrorMsg(null)} className="text-red-500 font-bold">✕</button>
+          </div>
+        </div>
+      )}
+
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* 2. ACTION BUTTONS */}
-      <div className="flex gap-4">
+      {/* 3. ACTION BUTTONS */}
+      <div className="flex gap-3 w-full max-w-lg">
         <button 
           onClick={captureAndProcess}
           disabled={loading || !cameraActive}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-full font-bold shadow-md transition-all active:scale-95"
+          className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white py-4 rounded-xl font-bold shadow-lg transition-all transform active:scale-95"
         >
-          {loading ? "Scanning..." : "Capture & Extract"}
+          {loading ? "Please Wait..." : "SCAN PAPER"}
         </button>
         
         <button 
-          onClick={() => setText("")}
-          className="bg-gray-300 hover:bg-gray-400 px-6 py-3 rounded-full font-semibold"
+          onClick={() => { setText(""); setErrorMsg(null); }}
+          className="bg-white border border-gray-300 hover:bg-gray-100 px-6 py-4 rounded-xl font-semibold shadow-sm"
         >
-          Clear Results
+          Reset
         </button>
       </div>
 
-      {/* 3. DISPLAY AREA BELOW CAMERA */}
-      <div className="w-full max-w-md bg-white p-6 rounded-xl shadow-inner border border-gray-200">
-        <h3 className="text-sm font-bold uppercase text-gray-400 mb-2">Extracted Details</h3>
-        <div className="min-h-[100px] text-gray-700 whitespace-pre-wrap font-mono text-sm">
-          {text || (loading ? "Waiting for results..." : "Captured text will appear here.")}
+      {/* 4. RESULTS AREA */}
+      <div className="w-full max-w-lg bg-white p-5 rounded-2xl shadow-md border border-gray-100">
+        <h3 className="text-xs font-black uppercase text-gray-400 tracking-widest mb-3">Extracted Data</h3>
+        <div className="min-h-[120px] text-gray-800 whitespace-pre-wrap font-mono text-sm leading-relaxed bg-gray-50 p-3 rounded-lg border border-dashed border-gray-200">
+          {text || "Align the exam paper within the frame and tap Scan."}
         </div>
       </div>
     </div>
