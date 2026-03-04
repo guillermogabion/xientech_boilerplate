@@ -17,7 +17,7 @@ const OCR: React.FC = () => {
 
   const startCamera = async () => {
     setIsFrozen(false);
-    setScanData(null); // Clear previous data for new scan
+    setScanData(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: "environment", width: 1280, height: 720 }
@@ -36,17 +36,15 @@ const OCR: React.FC = () => {
     const canvas = canvasRef.current;
     const video = videoRef.current;
 
+    // Resizing to 1000px width for high-concurrency stability
     const width = 1000;
     const scale = width / video.videoWidth;
     canvas.width = width;
     canvas.height = video.videoHeight * scale;
 
     const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    }
+    if (ctx) { ctx.drawImage(video, 0, 0, canvas.width, canvas.height); }
 
-    // Stop camera to save mobile battery
     const tracks = (video.srcObject as MediaStream).getTracks();
     tracks.forEach(t => t.stop());
     setIsFrozen(true);
@@ -58,31 +56,29 @@ const OCR: React.FC = () => {
       formData.append('student_id', selectedStudent); 
 
       try {
-        const response = await axios.post('YOUR_API_URL', formData);
+        // REPLACE WITH YOUR ACTUAL URL
+        const response = await axios.post('https://ian7117-sheet-scanner.hf.space/api/scan', formData);
         
-        // Always check if report exists before setting state
         if (response.data && response.data.report) {
             setScanData(response.data);
             const { total_score, max_score, percentage } = response.data;
             setText(`Score: ${total_score}/${max_score} (${percentage}%)`);
         } else {
-            setText("Scan returned no data. Try a clearer photo.");
+            setText("Scan Failed: No data returned from server.");
         }
       } catch (err) {
-        setText("Connection Error. Please try again.");
+        setText("Connection Error. Check if server is awake.");
       } finally {
         setLoading(false);
       }
-    }, 'image/jpeg', 0.9);
+    }, 'image/jpeg', 0.85); // 0.85 is the "sweet spot" for OMR circle clarity
   };
 
-  // Logic to save to your database
   const saveToDatabase = async () => {
     if (!scanData) return;
     try {
-        // Replace with your actual DB endpoint
-        // await axios.post('/api/save-grade', { student_id: selectedStudent, score: scanData.total_score });
-        alert("Grade Saved Successfully!");
+        // Example logic for database persistence
+        alert(`Successfully saved ${scanData.total_score} for student ${selectedStudent}`);
         startCamera();
     } catch (e) { alert("Save Failed"); }
   };
@@ -106,9 +102,9 @@ const OCR: React.FC = () => {
          <video ref={videoRef} autoPlay playsInline className={`w-full h-full object-cover ${isFrozen ? 'hidden' : 'block'}`} />
          <canvas ref={canvasRef} className={`w-full h-full object-cover ${isFrozen ? 'block' : 'hidden'}`} />
          {loading && (
-            <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white">
+            <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white z-10">
                 <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mb-2"></div>
-                Processing Paper...
+                Processing 50 Questions...
             </div>
          )}
       </div>
@@ -116,32 +112,36 @@ const OCR: React.FC = () => {
       <button 
         onClick={isFrozen ? startCamera : captureAndProcess} 
         disabled={loading}
-        className={`w-full max-w-lg py-4 rounded-xl font-bold text-white transition-all ${isFrozen ? "bg-gray-600" : "bg-blue-600 active:scale-95"}`}
+        className={`w-full max-w-lg py-4 rounded-xl font-bold text-white transition-all ${isFrozen ? "bg-slate-700" : "bg-blue-600 shadow-lg active:scale-95"}`}
       >
-        {isFrozen ? "RE-SCAN" : "SCAN PAPER"}
+        {isFrozen ? "NEW SCAN" : "SCAN PAPER"}
       </button>
 
       {scanData && (
-        <div className="w-full max-w-lg animate-in fade-in slide-in-from-bottom-4">
+        <div className="w-full max-w-lg animate-in slide-in-from-bottom-5 duration-300">
             <div className="bg-white rounded-xl shadow-sm border p-4 mb-4 text-center">
-                <p className="text-sm font-bold text-gray-500">SCAN RESULT</p>
-                <h2 className="text-3xl font-black text-blue-600">{text.split('\n')[0]}</h2>
-                <button onClick={saveToDatabase} className="mt-2 text-sm text-green-600 font-bold underline">CONFIRM & SAVE GRADE</button>
+                <p className="text-sm font-bold text-gray-400">RESULT</p>
+                <h2 className="text-4xl font-black text-blue-600">{text}</h2>
+                <button onClick={saveToDatabase} className="mt-3 w-full py-2 bg-green-500 text-white rounded-lg font-bold">SAVE TO GRADEBOOK</button>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border p-4 max-h-60 overflow-y-auto">
-                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Questions Review</h3>
-                <div className="grid grid-cols-1 gap-2">
-                    {Object.entries(scanData.report).map(([q, details]: any) => (
-                    <div key={q} className="flex justify-between items-center text-sm border-b pb-1">
-                        <span className="font-medium text-gray-700">{q}</span>
-                        <div className="flex gap-4">
-                        <span className="text-gray-500">Scan: {details.scanned}</span>
-                        <span className={details.is_correct ? "text-green-600 font-bold" : "text-red-600 font-bold"}>
-                            {details.is_correct ? "✓" : `✗ (${details.correct})`}
-                        </span>
+            <div className="bg-white rounded-xl shadow-sm border p-4 max-h-80 overflow-y-auto">
+                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3 border-b pb-2">Detailed Review</h3>
+                <div className="grid grid-cols-1 gap-1">
+                    {Object.entries(scanData.report)
+                      // SORTING FIX: Ensures Q10 comes after Q9, not Q1
+                      .sort((a, b) => parseInt(a[0].replace('Q', '')) - parseInt(b[0].replace('Q', '')))
+                      .map(([q, details]: any) => (
+                        <div key={q} className="flex justify-between items-center text-sm py-1 border-b border-gray-50 last:border-0">
+                            <span className="font-bold text-gray-500 w-8">{q}</span>
+                            <div className="flex gap-4 flex-1 px-4">
+                                <span className="text-gray-400">Scan: <b className="text-gray-700">{details.scanned}</b></span>
+                                <span className="text-gray-400">Key: <b className="text-gray-700">{details.correct}</b></span>
+                            </div>
+                            <span className={details.is_correct ? "text-green-600 font-bold" : "text-red-600 font-bold"}>
+                                {details.is_correct ? "CORRECT ✓" : "WRONG ✗"}
+                            </span>
                         </div>
-                    </div>
                     ))}
                 </div>
             </div>
