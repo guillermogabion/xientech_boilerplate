@@ -58,19 +58,22 @@ const OCR: React.FC = () => {
       formData.append('student_id', selectedStudent); 
 
       try {
-        const response = await axios.post('https://ian7117-sheet-scanner.hf.space/api/scan', formData);
+        const response = await axios.post('YOUR_API_URL', formData);
         
-        // Citing previous backend logic: ensure keys match total_score, max_score, etc.
-        const { total_score, max_score, percentage } = response.data;
-        setScanData(response.data); 
-        setText(`Score: ${total_score} / ${max_score} (${percentage}%)`);
-        
+        // Always check if report exists before setting state
+        if (response.data && response.data.report) {
+            setScanData(response.data);
+            const { total_score, max_score, percentage } = response.data;
+            setText(`Score: ${total_score}/${max_score} (${percentage}%)`);
+        } else {
+            setText("Scan returned no data. Try a clearer photo.");
+        }
       } catch (err) {
-        setText("Scan Failed. Server Busy or Image Unclear.");
+        setText("Connection Error. Please try again.");
       } finally {
         setLoading(false);
       }
-    }, 'image/jpeg', 0.7); 
+    }, 'image/jpeg', 0.9);
   };
 
   // Logic to save to your database
