@@ -145,6 +145,14 @@ const OCR: React.FC = () => {
                     ))}
                 </div>
             </div>
+            <div className="mb-4 bg-gray-200 rounded-xl overflow-hidden p-2">
+            <p className="text-[10px] font-bold text-center text-gray-600 mb-1 uppercase">Computer View (Flattened)</p>
+            <img 
+                src={`data:image/jpeg;base64,${scanData.debug_image}`} 
+                alt="Debug scan" 
+                className="w-full h-auto rounded border border-gray-400" 
+            />
+        </div>
         </div>
       )}
     </div>
