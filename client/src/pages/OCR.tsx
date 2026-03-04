@@ -27,12 +27,29 @@ const OCR: React.FC = () => {
     setIsFrozen(false);
     setScanData(null);
     setText("");
+    
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } }
-      });
-      if (videoRef.current) videoRef.current.srcObject = stream;
-    } catch (err) { console.error("Camera Error", err); }
+      // 1. Force BACK camera and high resolution
+      const constraints = {
+        video: { 
+          facingMode: { ideal: "environment" }, 
+          width: { ideal: 1920 }, 
+          height: { ideal: 1080 } 
+        }
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        // 2. Explicitly play for mobile browsers
+        videoRef.current.setAttribute("playsinline", "true"); 
+        await videoRef.current.play();
+      }
+    } catch (err) {
+      console.error("Camera Error:", err);
+      alert("Camera failed. Ensure you are on HTTPS and have granted permissions.");
+    }
   };
 
   const captureAndProcess = async () => {
