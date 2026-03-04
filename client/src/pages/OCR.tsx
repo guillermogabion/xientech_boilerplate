@@ -10,6 +10,7 @@ const OCR: React.FC = () => {
   const [text, setText] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [isFrozen, setIsFrozen] = useState<boolean>(false);
+  const [scanData, setScanData] = useState<any>(null);
 
   // Load students from your database on mount
   useEffect(() => {
@@ -37,9 +38,7 @@ const OCR: React.FC = () => {
     const canvas = canvasRef.current;
     const video = videoRef.current;
 
-    // --- WORKAROUND: BROWSER-SIDE RESIZE ---
-    // Instead of 4K, we send a 1000px width image. 
-    // This allows 100 teachers to scan simultaneously without crashing HF.
+    // WORKAROUND: High-concurrency resize (1000px)
     const width = 1000;
     const scale = width / video.videoWidth;
     canvas.width = width;
@@ -48,7 +47,6 @@ const OCR: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      // Optional: Turn to grayscale here to save even more data
     }
 
     const tracks = (video.srcObject as MediaStream).getTracks();
@@ -59,17 +57,22 @@ const OCR: React.FC = () => {
       if (!blob) return;
       const formData = new FormData();
       formData.append('image', blob, 'capture.jpg');
-      formData.append('student_id', selectedStudent); // Pass the DB ID
+      formData.append('student_id', selectedStudent); 
 
       try {
         const response = await axios.post('https://ian7117-sheet-scanner.hf.space/api/scan', formData);
-        setText(`Scan Complete for ID: ${selectedStudent}\nScore: ${response.data.score}`);
+        
+        // --- FIXING THE "UNDEFINED" ERROR HERE ---
+        const { total_score, max_score, percentage, report } = response.data;
+        setScanData(response.data); // Save full report
+        setText(`Scan Complete for ID: ${selectedStudent}\nScore: ${total_score} / ${max_score} (${percentage}%)`);
+        
       } catch (err) {
-        setText("Scan Failed. Server Busy.");
+        setText("Scan Failed. Server Busy or Connection Lost.");
       } finally {
         setLoading(false);
       }
-    }, 'image/jpeg', 0.7); // 0.7 quality is perfect for OMR circles
+    }, 'image/jpeg', 0.7); 
   };
 
   return (
@@ -99,9 +102,24 @@ const OCR: React.FC = () => {
         {isFrozen ? "NEW SCAN" : "SCAN PAPER"}
       </button>
 
-      <div className="w-full max-w-lg p-4 bg-white rounded-xl shadow-sm border border-dashed">
-        <pre className="text-sm">{text || "Ready to scan..."}</pre>
-      </div>
+      {scanData?.report && (
+        <div className="w-full max-w-lg mt-2 bg-white rounded-xl shadow-sm border p-4 max-h-60 overflow-y-auto">
+          <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-3">Questions Review</h3>
+          <div className="grid grid-cols-1 gap-2">
+            {Object.entries(scanData.report).map(([q, details]: any) => (
+              <div key={q} className="flex justify-between items-center text-sm border-b pb-1">
+                <span className="font-medium text-gray-700">{q}</span>
+                <div className="flex gap-4">
+                  <span className="text-gray-500">Scan: {details.scanned}</span>
+                  <span className={details.is_correct ? "text-green-600 font-bold" : "text-red-600 font-bold"}>
+                    {details.is_correct ? "✓" : `✗ (${details.correct})`}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
