@@ -149,11 +149,9 @@ const OCR: React.FC = () => {
                 {/* COMPUTER VIEW DEBUG: The "Trust" factor */}
                 <div className="bg-white p-3 rounded-2xl shadow-md">
                     <p className="text-[10px] font-black text-gray-400 uppercase text-center mb-2">Algorithm View (Corrected Perspective)</p>
-                    <img 
-                        src={`data:image/jpeg;base64,${scanData.debug_image}`} 
-                        alt="Flattened OMR" 
-                        className="w-full rounded-lg border-2 border-dashed border-gray-200" 
-                    />
+                    {scanData.debug_image && (
+                      <img src={`data:image/jpeg;base64,${scanData.debug_image}`} className="rounded-lg border shadow-sm" />
+                    )}
                 </div>
 
                 {/* Detailed List */}
